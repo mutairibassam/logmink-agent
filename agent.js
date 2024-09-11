@@ -69,7 +69,7 @@ pcapSession.on("packet", async function (rawPacket) {
   /**
    *  ipLayer object is being stored to access [consumer] and [producer]
    *  http requests
-   * 
+   *
    *  @property {object} ipLayer
    *  @property {string} ipLayer.saddr   (from)
    *  @property {string} ipLayer.daddr   (to)
@@ -79,42 +79,14 @@ pcapSession.on("packet", async function (rawPacket) {
   const httpData = tcpLayer?.data?.toString();
 
   if (httpData?.includes("HTTP") && !httpData?.includes("X-Agent-Logs")) {
+    
+    let request = {}, headers = {}, payload = {};
+
     const [requestLine, ...headerLines] = httpData.split("\r\n");
-    const headers = {};
-    var payload = "";
-
-    /// parse the request line (e.g., "GET /path HTTP/1.1")
-    const [method, url] = requestLine.split(" ");
-    const methodsList = [
-      "GET",
-      "POST",
-      "HEAD",
-      "PATCH",
-      "PUT",
-      "DELETE",
-      "OPTIONS",
-      "CONNECT",
-      "TRACE",
-    ];
-
-    if (!methodsList.includes(method)) {
-      /// currently this if condition is allowing only http
-      /// requests to be parsed and shared with the host.
-
-      /// parsing should be enhanced to be accurate
-      /// as it's now working for requests only, responses
-      /// are not covered.
-
-      /// TODO: response should be handled differently
-      ///       as there is no method specified.
-      return;
-    }
 
     for (const line of headerLines) {
       if (line === "") {
-        payload = headerLines
-          .slice(headerLines.indexOf(line) + 1)
-          .join("\r\n");
+        payload = headerLines.slice(headerLines.indexOf(line) + 1).join("\r\n");
         break;
       }
       const [key, ...valueParts] = line.split(": ");
@@ -123,9 +95,19 @@ pcapSession.on("packet", async function (rawPacket) {
       }
     }
 
-    /// payload to be shared with the host [boki.master]
-    const _request = {
+    let method, url, code, message;
+
+    if (/^(PUT|GET|POST|DELETE|PATCH|OPTIONS|HEAD) /.test(requestLine)) {
+      [method, url] = requestLine.split(" ");
+    } else {
+      [, code, ...messageParts] = requestLine.split(" ");
+      message = messageParts.join(" ");
+    }
+
+    request = {
       timestamp: new Date().toISOString(),
+      code,
+      message,
       method,
       url,
       headers,
@@ -139,15 +121,15 @@ pcapSession.on("packet", async function (rawPacket) {
       from: ipLayer.saddr.toString(),
       to: ipLayer.daddr.toString(),
     };
-
+    
     /// logging for debugging purposes
     ///
-    /// I'd highly recommend to not log in prod env as it will be 
+    /// I'd highly recommend to not log in prod env as it will be
     /// resources extensive also it might be used to pull the logs
     /// for different solutions
-    logger.info(_request);
+    logger.info(request);
 
-    /// Send data to a centralized host [boki.master]
+    /// Send data to a centralized host [logmink.hub]
     await fetch(`${process.env.LOGMINK_HUB_URL}:${process.env.PORT}/capture`, {
       method: "POST",
       headers: {
@@ -155,7 +137,7 @@ pcapSession.on("packet", async function (rawPacket) {
         /// custom header to identify internal requests
         "X-Agent-Logs": "true",
       },
-      body: JSON.stringify(_request),
+      body: JSON.stringify(request),
     });
   }
 });
