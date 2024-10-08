@@ -1,18 +1,16 @@
 {
   "name": "http-agent",
-  "version": "1.0.0",
+  "version": "0.1.0",
+  "description": "Agents that send logs to centeralized hub",
   "main": "agent.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "node agent.js"
+    "start": "node agent.js"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "keywords": ["logs", "logging", "agent"],
+  "author": "Bassam Almutairi (mutairibassam@gmail.com)",
   "dependencies": {
     "express": "^4.19.2",
     "pcap": "^3.1.0",
     "winston": "^3.14.2"
-  },
-  "description": ""
+  }
 }
